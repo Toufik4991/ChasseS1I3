@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mot caché interactif</title>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #222;
+    font-family: Arial, sans-serif;
+    color: white;
+  }
+  table {
+    border-collapse: collapse;
+    margin-bottom: 15px;
+  }
+  td {
+    width: 28px;
+    height: 28px;
+    text-align: center;
+    vertical-align: middle;
+    border: 1px solid #555;
+    background: white;
+    color: black;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+    font-size: 14px;
+  }
+  td.red {
+    background: red;
+    color: white;
+  }
+  td.green {
+    background: green;
+    color: white;
+  }
+  #message {
+    font-size: 24px;
+    font-weight: bold;
+    color: yellow;
+  }
+</style>
+</head>
+<body>
+
+<table id="grid"></table>
+<div id="message"></div>
+
+<script>
+// Les mots à cacher et leurs positions
+const words = [
+  { word: "REMBARDE", row: 5, col: 5, direction: "D" },  // diagonal
+  { word: "METALLIQUE", row: 7, col: 15, direction: "V" } // vertical colonne 16
+];
+
+const rows = 22;
+const cols = 22;
+
+// Créer la grille vide
+let grid = Array.from({length: rows}, () => Array(cols).fill(''));
+
+// Placer les mots
+words.forEach(w => {
+  if (w.direction === "H") {
+    for (let i = 0; i < w.word.length; i++) {
+      grid[w.row][w.col + i] = w.word[i];
+    }
+  } else if (w.direction === "V") {
+    for (let i = 0; i < w.word.length; i++) {
+      grid[w.row + i][w.col] = w.word[i];
+    }
+  } else if (w.direction === "D") { // diagonal
+    for (let i = 0; i < w.word.length; i++) {
+      grid[w.row + i][w.col + i] = w.word[i];
+    }
+  }
+});
+
+// Remplir le reste de la grille avec lettres aléatoires
+const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+for (let r = 0; r < rows; r++) {
+  for (let c = 0; c < cols; c++) {
+    if (!grid[r][c]) {
+      grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
+    }
+  }
+}
+
+// Créer le tableau HTML
+const table = document.getElementById("grid");
+let tdGrid = []; // pour stocker tous les td
+for (let r = 0; r < rows; r++) {
+  const tr = document.createElement("tr");
+  tdGrid[r] = [];
+  for (let c = 0; c < cols; c++) {
+    const td = document.createElement("td");
+    td.textContent = grid[r][c];
+    td.dataset.row = r;
+    td.dataset.col = c;
+    tdGrid[r][c] = td;
+
+    // Gestion clic toggle rouge/blanc
+    td.addEventListener("click", () => {
+      if (!td.classList.contains("green")) {
+        td.classList.toggle("red");
+        checkWords();
+      }
+    });
+
+    tr.appendChild(td);
+  }
+  table.appendChild(tr);
+}
+
+// Vérifier si un mot est complet et transformer les rouges en vert
+function checkWords() {
+  words.forEach(w => {
+    let allFound = true;
+    if (w.direction === "H") {
+      for (let i = 0; i < w.word.length; i++) {
+        const td = tdGrid[w.row][w.col + i];
+        if (!td.classList.contains("red")) {
+          allFound = false;
+          break;
+        }
+      }
+      if (allFound) {
+        for (let i = 0; i < w.word.length; i++) {
+          const td = tdGrid[w.row][w.col + i];
+          td.classList.remove("red");
+          td.classList.add("green");
+        }
+        if (w.word === "REMBARDE") {
+          document.getElementById("message").textContent = "MIAOU";
+        }
+      }
+    } else if (w.direction === "V") {
+      for (let i = 0; i < w.word.length; i++) {
+        const td = tdGrid[w.row + i][w.col];
+        if (!td.classList.contains("red")) {
+          allFound = false;
+          break;
+        }
+      }
+      if (allFound) {
+        for (let i = 0; i < w.word.length; i++) {
+          const td = tdGrid[w.row + i][w.col];
+          td.classList.remove("red");
+          td.classList.add("green");
+        }
+      }
+    } else if (w.direction === "D") {
+      for (let i = 0; i < w.word.length; i++) {
+        const td = tdGrid[w.row + i][w.col + i];
+        if (!td.classList.contains("red")) {
+          allFound = false;
+          break;
+        }
+      }
+      if (allFound) {
+        for (let i = 0; i < w.word.length; i++) {
+          const td = tdGrid[w.row + i][w.col + i];
+          td.classList.remove("red");
+          td.classList.add("green");
+        }
+        if (w.word === "REMBARDE") {
+          document.getElementById("message").textContent = "MIAOU";
+        }
+      }
+    }
+  });
+}
+</script>
+
+</body>
+</html>
+
