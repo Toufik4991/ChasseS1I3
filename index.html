@@ -3,181 +3,218 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mot caché interactif</title>
+<title>Mots Cachés - Mode Mystère</title>
 <style>
+  :root {
+    --bg: #0a0a0c;
+    --cell-bg: #1a1a20;
+    --accent: #00d2ff;
+    --win: #00ff88;
+    --select: #ff007a;
+  }
+
   body {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    background: #222;
-    font-family: Arial, sans-serif;
+    min-height: 100vh;
+    background: var(--bg);
+    font-family: 'Orbitron', sans-serif, Arial;
     color: white;
-  }
-  table {
-    border-collapse: collapse;
-    margin-bottom: 15px;
-  }
-  td {
-    width: 28px;
-    height: 28px;
-    text-align: center;
-    vertical-align: middle;
-    border: 1px solid #555;
-    background: white;
-    color: black;
-    font-weight: bold;
-    cursor: pointer;
+    margin: 0;
+    overflow: hidden;
     user-select: none;
-    font-size: 14px;
   }
-  td.red {
-    background: red;
-    color: white;
+
+  /* Grille Moderne */
+  table {
+    border-collapse: separate;
+    border-spacing: 3px;
+    background: #111;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,0,0,1);
+    border: 1px solid #333;
   }
-  td.green {
-    background: green;
-    color: white;
-  }
-  #message {
-    font-size: 24px;
+
+  td {
+    width: 32px;
+    height: 32px;
+    text-align: center;
+    background: var(--cell-bg);
+    color: #888;
     font-weight: bold;
-    color: yellow;
+    cursor: crosshair;
+    font-size: 15px;
+    transition: all 0.1s ease;
+    border-radius: 3px;
+    text-shadow: 0 0 5px rgba(0,0,0,0.5);
+  }
+
+  /* Effet survol */
+  td:hover {
+    background: #2a2a35;
+    color: white;
+  }
+
+  /* Style pendant le glissement */
+  td.selecting {
+    background: var(--select) !important;
+    color: white !important;
+    transform: scale(1.1);
+    box-shadow: 0 0 15px var(--select);
+    z-index: 10;
+  }
+
+  /* Style quand un mot est trouvé */
+  td.found {
+    background: var(--win) !important;
+    color: black !important;
+    text-shadow: none;
+    animation: flash 0.6s ease-out;
+  }
+
+  @keyframes flash {
+    0% { filter: brightness(3); transform: scale(1.2); }
+    100% { filter: brightness(1); transform: scale(1); }
+  }
+
+  #message {
+    height: 60px;
+    margin-top: 20px;
+    font-size: 32px;
+    font-weight: bold;
+    color: var(--win);
+    text-shadow: 0 0 20px var(--win);
+    letter-spacing: 2px;
+  }
+
+  /* Décoration d'ambiance */
+  .hint-text {
+    margin-bottom: 15px;
+    color: #444;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 3px;
   }
 </style>
 </head>
 <body>
 
+<div class="hint-text">Trouvez les mots cachés dans la matrice</div>
 <table id="grid"></table>
 <div id="message"></div>
 
 <script>
-// Les mots à cacher et leurs positions
 const words = [
-  { word: "REMBARDE", row: 5, col: 5, direction: "D" },  // diagonal
-  { word: "METALLIQUE", row: 7, col: 15, direction: "V" } // vertical colonne 16
+  { text: "REMBARDE", row: 5, col: 5, dir: "D" },
+  { text: "METALLIQUE", row: 7, col: 15, dir: "V" }
 ];
 
 const rows = 22;
 const cols = 22;
-
-// Créer la grille vide
 let grid = Array.from({length: rows}, () => Array(cols).fill(''));
+let isMouseDown = false;
+let selectedCells = [];
+let foundWordsCount = 0;
 
-// Placer les mots
+// 1. Placement des mots
 words.forEach(w => {
-  if (w.direction === "H") {
-    for (let i = 0; i < w.word.length; i++) {
-      grid[w.row][w.col + i] = w.word[i];
-    }
-  } else if (w.direction === "V") {
-    for (let i = 0; i < w.word.length; i++) {
-      grid[w.row + i][w.col] = w.word[i];
-    }
-  } else if (w.direction === "D") { // diagonal
-    for (let i = 0; i < w.word.length; i++) {
-      grid[w.row + i][w.col + i] = w.word[i];
-    }
+  for (let i = 0; i < w.text.length; i++) {
+    let r = w.row + (w.dir === "V" || w.dir === "D" ? i : 0);
+    let c = w.col + (w.dir === "H" || w.dir === "D" ? i : 0);
+    grid[r][c] = w.text[i];
   }
 });
 
-// Remplir le reste de la grille avec lettres aléatoires
+// 2. Remplissage aléatoire
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 for (let r = 0; r < rows; r++) {
   for (let c = 0; c < cols; c++) {
-    if (!grid[r][c]) {
-      grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
-    }
+    if (!grid[r][c]) grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
   }
 }
 
-// Créer le tableau HTML
+// 3. Création de la grille
 const table = document.getElementById("grid");
-let tdGrid = []; // pour stocker tous les td
+const tdGrid = [];
+
 for (let r = 0; r < rows; r++) {
   const tr = document.createElement("tr");
   tdGrid[r] = [];
   for (let c = 0; c < cols; c++) {
     const td = document.createElement("td");
     td.textContent = grid[r][c];
-    td.dataset.row = r;
-    td.dataset.col = c;
-    tdGrid[r][c] = td;
-
-    // Gestion clic toggle rouge/blanc
-    td.addEventListener("click", () => {
-      if (!td.classList.contains("green")) {
-        td.classList.toggle("red");
-        checkWords();
-      }
+    
+    td.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      startSelection(td);
     });
-
+    td.addEventListener("mouseenter", () => continueSelection(td));
+    
     tr.appendChild(td);
+    tdGrid[r][c] = td;
   }
   table.appendChild(tr);
 }
 
-// Vérifier si un mot est complet et transformer les rouges en vert
-function checkWords() {
-  words.forEach(w => {
-    let allFound = true;
-    if (w.direction === "H") {
-      for (let i = 0; i < w.word.length; i++) {
-        const td = tdGrid[w.row][w.col + i];
-        if (!td.classList.contains("red")) {
-          allFound = false;
-          break;
-        }
-      }
-      if (allFound) {
-        for (let i = 0; i < w.word.length; i++) {
-          const td = tdGrid[w.row][w.col + i];
-          td.classList.remove("red");
-          td.classList.add("green");
-        }
-        if (w.word === "REMBARDE") {
-          document.getElementById("message").textContent = "MIAOU";
-        }
-      }
-    } else if (w.direction === "V") {
-      for (let i = 0; i < w.word.length; i++) {
-        const td = tdGrid[w.row + i][w.col];
-        if (!td.classList.contains("red")) {
-          allFound = false;
-          break;
-        }
-      }
-      if (allFound) {
-        for (let i = 0; i < w.word.length; i++) {
-          const td = tdGrid[w.row + i][w.col];
-          td.classList.remove("red");
-          td.classList.add("green");
-        }
-      }
-    } else if (w.direction === "D") {
-      for (let i = 0; i < w.word.length; i++) {
-        const td = tdGrid[w.row + i][w.col + i];
-        if (!td.classList.contains("red")) {
-          allFound = false;
-          break;
-        }
-      }
-      if (allFound) {
-        for (let i = 0; i < w.word.length; i++) {
-          const td = tdGrid[w.row + i][w.col + i];
-          td.classList.remove("red");
-          td.classList.add("green");
-        }
-        if (w.word === "REMBARDE") {
-          document.getElementById("message").textContent = "MIAOU";
-        }
-      }
-    }
-  });
+window.addEventListener("mouseup", endSelection);
+
+// --- LOGIQUE DE SÉLECTION ---
+
+function startSelection(td) {
+  if (td.classList.contains("found")) return;
+  isMouseDown = true;
+  selectedCells = [td];
+  td.classList.add("selecting");
+}
+
+function continueSelection(td) {
+  if (!isMouseDown) return;
+  if (!selectedCells.includes(td)) {
+    selectedCells.push(td);
+    td.classList.add("selecting");
+  }
+}
+
+function endSelection() {
+  if (!isMouseDown) return;
+  isMouseDown = false;
+  
+  const currentString = selectedCells.map(td => td.textContent).join("");
+  const reversedString = currentString.split("").reverse().join("");
+  
+  let match = words.find(w => currentString === w.text || reversedString === w.text);
+  
+  if (match) {
+    selectedCells.forEach(td => {
+      td.classList.remove("selecting");
+      td.classList.add("found");
+    });
+    foundWordsCount++;
+    showFeedback(match.text);
+  } else {
+    selectedCells.forEach(td => td.classList.remove("selecting"));
+  }
+  selectedCells = [];
+}
+
+function showFeedback(wordFound) {
+  const msg = document.getElementById("message");
+  if (wordFound === "REMBARDE") {
+    msg.textContent = "🐾 MIAOU ! 🐾";
+  } else {
+    msg.textContent = "BIEN JOUÉ !";
+  }
+
+  if (foundWordsCount === words.length) {
+    msg.textContent = "SÉQUENCE TERMINÉE 🎉";
+  } else {
+    setTimeout(() => { if(msg.textContent !== "SÉQUENCE TERMINÉE 🎉") msg.textContent = ""; }, 2000);
+  }
 }
 </script>
 
 </body>
 </html>
-
