@@ -8,7 +8,6 @@
   :root {
     --bg: #0a0a0c;
     --cell-bg: #1a1a20;
-    --accent: #00d2ff;
     --win: #00ff88;
     --select: #ff007a;
   }
@@ -20,10 +19,9 @@
     align-items: center;
     min-height: 100vh;
     background: var(--bg);
-    font-family: 'Orbitron', sans-serif, Arial;
+    font-family: sans-serif;
     color: white;
     margin: 0;
-    /* Bloque le scroll et le rafraîchissement par glissement sur mobile */
     touch-action: none; 
     overflow: hidden;
     user-select: none;
@@ -38,11 +36,11 @@
     box-shadow: 0 0 35px rgba(0,0,0,0.8);
     border: 1px solid #333;
     width: 95vw;
-    max-width: 450px; /* Taille optimale sur smartphone */
+    max-width: 450px;
   }
 
   td {
-    width: 6vw; /* Taille adaptative */
+    width: 6vw;
     height: 6vw;
     max-width: 30px;
     max-height: 30px;
@@ -55,16 +53,14 @@
     border-radius: 3px;
   }
 
-  /* État pendant que le doigt glisse sur la case */
+  /* La lettre reste allumée quand on appuie dessus */
   td.selecting {
     background: var(--select) !important;
     color: white !important;
     transform: scale(1.1);
     box-shadow: 0 0 10px var(--select);
-    z-index: 10;
   }
 
-  /* État quand le mot est validé */
   td.found {
     background: var(--win) !important;
     color: black !important;
@@ -92,10 +88,10 @@
 <div id="message"></div>
 
 <script>
-// Tes mots configurés pour une grille 15x15
+// "METALLIQUE" est maintenant inversé (dir: "VR" pour Vertical Reverse)
 const words = [
   { text: "REMBARDE", row: 2, col: 2, dir: "D" },
-  { text: "METALLIQUE", row: 3, col: 12, dir: "V" }
+  { text: "METALLIQUE", row: 12, col: 12, dir: "VR" } 
 ];
 
 const size = 15;
@@ -104,16 +100,18 @@ let isSelecting = false;
 let selectedCells = [];
 let foundWordsCount = 0;
 
-// 1. Placement des mots
+// Placement des mots
 words.forEach(w => {
   for (let i = 0; i < w.text.length; i++) {
-    let r = w.row + (w.dir === "V" || w.dir === "D" ? i : 0);
-    let c = w.col + (w.dir === "H" || w.dir === "D" ? i : 0);
-    if (r < size && c < size) grid[r][c] = w.text[i];
+    let r, c;
+    if (w.dir === "D") { r = w.row + i; c = w.col + i; }
+    else if (w.dir === "VR") { r = w.row - i; c = w.col; } // Monte au lieu de descendre
+    
+    if (r >= 0 && r < size && c >= 0 && c < size) grid[r][c] = w.text[i];
   }
 });
 
-// 2. Remplissage aléatoire
+// Remplissage aléatoire
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 for (let r = 0; r < size; r++) {
   for (let c = 0; c < size; c++) {
@@ -121,30 +119,24 @@ for (let r = 0; r < size; r++) {
   }
 }
 
-// 3. Création de la grille tactile
 const table = document.getElementById("grid");
-const tdGrid = [];
-
 for (let r = 0; r < size; r++) {
   const tr = document.createElement("tr");
-  tdGrid[r] = [];
   for (let c = 0; c < size; c++) {
     const td = document.createElement("td");
     td.textContent = grid[r][c];
     
-    // Support Tactile Mobile
+    // Support Tactile
     td.addEventListener("touchstart", (e) => {
       e.preventDefault();
       startSelection(td);
     });
     
     tr.appendChild(td);
-    tdGrid[r][c] = td;
   }
   table.appendChild(tr);
 }
 
-// Détection du glissement par coordonnées (nécessaire pour mobile)
 window.addEventListener("touchmove", (e) => {
   if (!isSelecting) return;
   const touch = e.touches[0];
@@ -155,8 +147,6 @@ window.addEventListener("touchmove", (e) => {
 });
 
 window.addEventListener("touchend", endSelection);
-
-// --- FONCTIONS DE JEU ---
 
 function startSelection(td) {
   if (td.classList.contains("found")) return;
@@ -190,24 +180,24 @@ function endSelection() {
     foundWordsCount++;
     showFeedback(match.text);
   } else {
-    selectedCells.forEach(td => td.classList.remove("selecting"));
+    // Si ce n'est pas le bon mot, on éteint les lettres après un court délai
+    const cellsToReset = [...selectedCells];
+    setTimeout(() => {
+        cellsToReset.forEach(td => {
+            if (!td.classList.contains("found")) td.classList.remove("selecting");
+        });
+    }, 200);
   }
   selectedCells = [];
 }
 
 function showFeedback(wordFound) {
   const msg = document.getElementById("message");
-  if (wordFound === "REMBARDE") {
-    msg.textContent = "🐾 MIAOU ! 🐾";
-  } else {
-    msg.textContent = "BIEN JOUÉ !";
-  }
+  if (wordFound === "REMBARDE") msg.textContent = "🐾 MIAOU ! 🐾";
+  else msg.textContent = "BIEN JOUÉ !";
 
-  if (foundWordsCount === words.length) {
-    msg.textContent = "TERMINÉ 🎉";
-  } else {
-    setTimeout(() => { if(msg.textContent !== "TERMINÉ 🎉") msg.textContent = ""; }, 2000);
-  }
+  if (foundWordsCount === words.length) msg.textContent = "TERMINÉ 🎉";
+  else setTimeout(() => { if(msg.textContent !== "TERMINÉ 🎉") msg.textContent = ""; }, 2000);
 }
 </script>
 
