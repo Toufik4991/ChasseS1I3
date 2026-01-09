@@ -9,8 +9,8 @@
     --bg: #0a0a0c;
     --cell-bg: #1a1a20;
     --win: #00ff88;
-    --select: #ff007a; /* Rouge pour le glisser */
-    --hint: #ffcc00;   /* Jaune pour le clic aide */
+    --select: #ff007a; 
+    --hint: #ffcc00;   
   }
 
   body {
@@ -54,26 +54,9 @@
     border-radius: 3px;
   }
 
-  /* État : Cliqué pour aide (Jaune) */
-  td.hinted {
-    background: var(--hint) !important;
-    color: black !important;
-  }
-
-  /* État : En train de glisser (Rouge) */
-  td.selecting {
-    background: var(--select) !important;
-    color: white !important;
-    transform: scale(1.1);
-    z-index: 10;
-  }
-
-  /* État : Mot trouvé (Vert) */
-  td.found {
-    background: var(--win) !important;
-    color: black !important;
-    animation: flash 0.5s ease-out;
-  }
+  td.hinted { background: var(--hint) !important; color: black !important; }
+  td.selecting { background: var(--select) !important; color: white !important; transform: scale(1.1); z-index: 10; }
+  td.found { background: var(--win) !important; color: black !important; animation: flash 0.5s ease-out; }
 
   @keyframes flash {
     0% { filter: brightness(2); transform: scale(1.15); }
@@ -81,12 +64,15 @@
   }
 
   #message {
-    height: 40px;
+    height: auto;
     margin-top: 15px;
-    font-size: 24px;
+    font-size: 28px;
     font-weight: bold;
     color: var(--win);
     text-shadow: 0 0 15px var(--win);
+    text-align: center;
+    padding: 20px;
+    line-height: 1.4;
   }
 </style>
 </head>
@@ -107,7 +93,6 @@ let isDragging = false;
 let selectedCells = [];
 let foundWordsCount = 0;
 
-// Placement des mots
 words.forEach(w => {
   for (let i = 0; i < w.text.length; i++) {
     let r, c;
@@ -117,7 +102,6 @@ words.forEach(w => {
   }
 });
 
-// Remplissage aléatoire
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 for (let r = 0; r < size; r++) {
   for (let c = 0; c < size; c++) {
@@ -131,17 +115,11 @@ for (let r = 0; r < size; r++) {
   for (let c = 0; c < size; c++) {
     const td = document.createElement("td");
     td.textContent = grid[r][c];
-    
-    // Support Tactile
     td.addEventListener("touchstart", (e) => {
       e.preventDefault();
-      // On bascule le jaune (Aide) au premier contact
-      if(!td.classList.contains("found")) {
-        td.classList.toggle("hinted");
-      }
+      if(!td.classList.contains("found")) td.classList.toggle("hinted");
       startDragging(td);
     });
-    
     tr.appendChild(td);
   }
   table.appendChild(tr);
@@ -151,9 +129,7 @@ window.addEventListener("touchmove", (e) => {
   if (!isDragging) return;
   const touch = e.touches[0];
   const el = document.elementFromPoint(touch.clientX, touch.clientY);
-  if (el && el.tagName === "TD") {
-    continueDragging(el);
-  }
+  if (el && el.tagName === "TD") continueDragging(el);
 });
 
 window.addEventListener("touchend", endSelection);
@@ -183,14 +159,11 @@ function endSelection() {
   if (!isDragging) return;
   isDragging = false;
   
-  // On regarde si le glisser actuel forme un mot
   let match = checkValidation(selectedCells);
-  
-  // Si non, on regarde aussi si TOUTES les cases en jaune/aide forment un mot
   if (!match) {
     const hintedCells = Array.from(document.querySelectorAll('.hinted'));
     match = checkValidation(hintedCells);
-    if (match) selectedCells = hintedCells; // Si le jaune gagne, on utilise ces cellules
+    if (match) selectedCells = hintedCells;
   }
   
   if (match) {
@@ -201,7 +174,6 @@ function endSelection() {
     foundWordsCount++;
     showFeedback(match.text);
   } else {
-    // Échec du glisser : on nettoie le rouge mais on laisse le jaune
     selectedCells.forEach(td => td.classList.remove("selecting"));
   }
   selectedCells = [];
@@ -209,11 +181,17 @@ function endSelection() {
 
 function showFeedback(wordFound) {
   const msg = document.getElementById("message");
-  if (wordFound === "REMBARDE") msg.textContent = "🐾 MIAOU ! 🐾";
-  else msg.textContent = "BIEN JOUÉ !";
-
-  if (foundWordsCount === words.length) msg.textContent = "TERMINÉ 🎉";
-  else setTimeout(() => { if(msg.textContent !== "TERMINÉ 🎉") msg.textContent = ""; }, 2000);
+  
+  if (foundWordsCount === words.length) {
+    // Suppression de la grille
+    document.getElementById("grid").style.display = "none";
+    // Message final percutant
+    msg.innerHTML = "Rembarde Métallique ! 🌝☝️";
+  } else {
+    if (wordFound === "REMBARDE") msg.textContent = "🐾 MIAOU ! 🐾";
+    else msg.textContent = "BIEN JOUÉ !";
+    setTimeout(() => { if(foundWordsCount < words.length) msg.textContent = ""; }, 2000);
+  }
 }
 </script>
 
