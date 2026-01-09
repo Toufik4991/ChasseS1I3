@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mots Cachés Mystère - 15x15</title>
+<title>Mots Cachés Mystère - Mobile</title>
 <style>
   :root {
     --bg: #0a0a0c;
     --cell-bg: #1a1a20;
     --win: #00ff88;
-    --select: #ff007a;
+    --select: #ff007a; /* Rouge pour le glisser */
+    --hint: #ffcc00;   /* Jaune pour le clic aide */
   }
 
   body {
@@ -49,18 +50,25 @@
     color: #888;
     font-weight: bold;
     font-size: 14px;
-    transition: all 0.1s ease;
+    transition: background 0.2s, transform 0.1s;
     border-radius: 3px;
   }
 
-  /* La lettre reste allumée quand on appuie dessus */
+  /* État : Cliqué pour aide (Jaune) */
+  td.hinted {
+    background: var(--hint) !important;
+    color: black !important;
+  }
+
+  /* État : En train de glisser (Rouge) */
   td.selecting {
     background: var(--select) !important;
     color: white !important;
     transform: scale(1.1);
-    box-shadow: 0 0 10px var(--select);
+    z-index: 10;
   }
 
+  /* État : Mot trouvé (Vert) */
   td.found {
     background: var(--win) !important;
     color: black !important;
@@ -88,7 +96,6 @@
 <div id="message"></div>
 
 <script>
-// "METALLIQUE" est maintenant inversé (dir: "VR" pour Vertical Reverse)
 const words = [
   { text: "REMBARDE", row: 2, col: 2, dir: "D" },
   { text: "METALLIQUE", row: 12, col: 12, dir: "VR" } 
@@ -96,7 +103,7 @@ const words = [
 
 const size = 15;
 let grid = Array.from({length: size}, () => Array(size).fill(''));
-let isSelecting = false;
+let isDragging = false;
 let selectedCells = [];
 let foundWordsCount = 0;
 
@@ -105,8 +112,7 @@ words.forEach(w => {
   for (let i = 0; i < w.text.length; i++) {
     let r, c;
     if (w.dir === "D") { r = w.row + i; c = w.col + i; }
-    else if (w.dir === "VR") { r = w.row - i; c = w.col; } // Monte au lieu de descendre
-    
+    else if (w.dir === "VR") { r = w.row - i; c = w.col; }
     if (r >= 0 && r < size && c >= 0 && c < size) grid[r][c] = w.text[i];
   }
 });
@@ -129,7 +135,11 @@ for (let r = 0; r < size; r++) {
     // Support Tactile
     td.addEventListener("touchstart", (e) => {
       e.preventDefault();
-      startSelection(td);
+      // On bascule le jaune (Aide) au premier contact
+      if(!td.classList.contains("found")) {
+        td.classList.toggle("hinted");
+      }
+      startDragging(td);
     });
     
     tr.appendChild(td);
@@ -138,55 +148,61 @@ for (let r = 0; r < size; r++) {
 }
 
 window.addEventListener("touchmove", (e) => {
-  if (!isSelecting) return;
+  if (!isDragging) return;
   const touch = e.touches[0];
   const el = document.elementFromPoint(touch.clientX, touch.clientY);
   if (el && el.tagName === "TD") {
-    continueSelection(el);
+    continueDragging(el);
   }
 });
 
 window.addEventListener("touchend", endSelection);
 
-function startSelection(td) {
+function startDragging(td) {
   if (td.classList.contains("found")) return;
-  isSelecting = true;
+  isDragging = true;
   selectedCells = [td];
   td.classList.add("selecting");
 }
 
-function continueSelection(td) {
-  if (!isSelecting || td.classList.contains("found")) return;
+function continueDragging(td) {
+  if (!isDragging || td.classList.contains("found")) return;
   if (!selectedCells.includes(td)) {
     selectedCells.push(td);
     td.classList.add("selecting");
   }
 }
 
-function endSelection() {
-  if (!isSelecting) return;
-  isSelecting = false;
-  
-  const currentString = selectedCells.map(td => td.textContent).join("");
+function checkValidation(cells) {
+  const currentString = cells.map(td => td.textContent).join("");
   const reversedString = currentString.split("").reverse().join("");
+  return words.find(w => currentString === w.text || reversedString === w.text);
+}
+
+function endSelection() {
+  if (!isDragging) return;
+  isDragging = false;
   
-  let match = words.find(w => currentString === w.text || reversedString === w.text);
+  // On regarde si le glisser actuel forme un mot
+  let match = checkValidation(selectedCells);
+  
+  // Si non, on regarde aussi si TOUTES les cases en jaune/aide forment un mot
+  if (!match) {
+    const hintedCells = Array.from(document.querySelectorAll('.hinted'));
+    match = checkValidation(hintedCells);
+    if (match) selectedCells = hintedCells; // Si le jaune gagne, on utilise ces cellules
+  }
   
   if (match) {
     selectedCells.forEach(td => {
-      td.classList.remove("selecting");
+      td.classList.remove("selecting", "hinted");
       td.classList.add("found");
     });
     foundWordsCount++;
     showFeedback(match.text);
   } else {
-    // Si ce n'est pas le bon mot, on éteint les lettres après un court délai
-    const cellsToReset = [...selectedCells];
-    setTimeout(() => {
-        cellsToReset.forEach(td => {
-            if (!td.classList.contains("found")) td.classList.remove("selecting");
-        });
-    }, 200);
+    // Échec du glisser : on nettoie le rouge mais on laisse le jaune
+    selectedCells.forEach(td => td.classList.remove("selecting"));
   }
   selectedCells = [];
 }
